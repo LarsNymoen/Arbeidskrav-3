@@ -1,0 +1,160 @@
+---
+title: "Arbeidskrav 3"
+author: "Lars Nymoen"
+date: "6/11-2020"
+output: html_document
+---
+
+## DEL 1
+
+I denne delen av oppgaven skal jeg se på forskjellen i gjennomsnittlig CSA (cross section area) fra testtidspunkt 1 (pre) mellom HIGH- og LOW-gruppen.
+Datasettet er henter fra Haun et al., 2019, som testet intensiv styrketrening på 30 menn.
+Disse ble delt inn i 3 grupper (n = 10) HIGH, LOW og NA.
+Her skal jeg ta for meg gruppene HIGH og LOW.
+
+Den alternative hypotesen er at som høy-respondere vil HIGH-gruppen av et større gjennomsnittlig muskeltverrsnitt enn LOW-gruppen.
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+
+# laster inn pakkene som skal brukes
+
+library(tidyverse)
+library(knitr)
+library(broom)
+
+# Laste inn data
+hypertrophy <- read_csv("./data/hypertrophy.csv")
+```
+
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+
+# velger de variablene  jeg er interessert i 
+var_interest <- c("CLUSTER", "AVG_CSA_T1", "T1_BODY_MASS")
+
+# filtrerer ut NA og evt NA verdier fra CLUSTER og AVG CSA
+hyp <- hypertrophy %>%
+  select(all_of(var_interest)) %>%
+  filter(!is.na(CLUSTER),
+         !is.na(AVG_CSA_T1))
+```
+
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+
+# Kjøre t.test mellom HIGH og LOW på variabelen AVG_CSA_T1
+ttest <- t.test(AVG_CSA_T1 ~ CLUSTER, data = hyp, var.equal = TRUE)
+```
+
+Tabell med ttest-resultater
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# Se gjennom dataen
+ttest
+```
+
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+
+# Lagre de enkelte veridene fra ttesten i ulike objekter, slik at de lett kan brukes senere
+df <- round(ttest$parameter, 2)
+statistic <- round(ttest$statistic, 2)
+estimate <- ttest$estimate
+cil <- round(ttest$conf.int[1], 2)
+ciu <- round(ttest$conf.int[2], 2)
+pval <- round(ttest$p.value, 3)
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+# Lage regresjonsmodell med CSA 
+m1 <- lm(AVG_CSA_T1 ~ CLUSTER, data = hyp)
+
+# lage tabell som inneholder 
+rtable <- tidy(m1) %>%
+  kable(col.names = c("", "Estimate", "SE", "t-statistic", "p-value"), 
+        digits = c(NA, 1, 1, 2, 3),  
+        caption = "") 
+  
+rtable
+
+```
+
+Basert på ttesten og regresjonsmodellen viser det seg at HIGH-gruppen hadde større gjennomsnittlig CSA (Cross section area) ved T1 enn det LOW-gruppen hadde (p =  `r round(pval, 3)`). Dette betyr altså at det er gode nok resultater til at NULL hypotesen kan forkastes. Konklusjonen blir da at ved testtidspunkt 1 hadde HIGH-gruppen signifikant større gjennomsnittlig CSA enn det LOW-gruppen hadde. 
+
+
+
+
+## DEL 2
+
+I del 2 av oppgaven skal jeg finne ut av om det er noen sammenheng mellom styrke (Squat 3RM) og det gjennomsnittlige muskeltverrsnittet (AVG CSA) blandt alle deltagerne i studien (n = 30), begge undersøkt ved pre test (T1).
+
+```{r include=FALSE, message=FALSE, message=FALSE}
+
+#lagre data i et nytt objekt, og velge de variablene som er interessante
+dat2 <- hypertrophy %>%
+  select("SUB_ID", "Squat_3RM_kg", "AVG_CSA_T1", "T1_BODY_MASS") 
+   
+```
+
+
+```{r include=FALSE, message=FALSE, message=FALSE}
+
+# kjøre korrelasjonstest på Squat 3RM og AVG CSA
+cort2 <- cor.test(dat2$Squat_3RM_kg, dat2$AVG_CSA_T1)
+
+# lagre verider i objekter, slik at de kan brukes senere
+pval2 <- round(cort2$p.value, 3)
+cor2 <- round(cort2$estimate, 3)
+```
+
+
+```{r echo=FALSE, message=FALSE, message=FALSE}
+# lage et plott med punktene for AVG CSA og Squat 3RM
+dat2 %>%
+  ggplot(aes(AVG_CSA_T1, Squat_3RM_kg)) + 
+  geom_point() + 
+  geom_smooth(se = TRUE, method = "lm") +
+  labs(x = "Gjennomsnittlig CSA",
+       y = "Squat 3RM (kg)",
+       title = "Figur 1")
+```
+
+Grafen viser en regresjonsmodell, der den blå linjen viser at det er en liten positiv korrelasjon mellom Squat 3RM og AVG CSA for allle de 30 forsøkspersonene med i studien.  
+
+```{r include=FALSE, message=FALSE, message=FALSE}
+
+# lagre regresjons modell i nytt objekt
+# predikere Squat 3RM ved hjelp av AVG CSA kontrollert for BODY MASS?
+regmod <- lm(Squat_3RM_kg  ~ AVG_CSA_T1 + T1_BODY_MASS, data = dat2)
+```
+
+
+```{r echo=FALSE, message=FALSE, message=FALSE}
+
+#se på dataen som ligger i objektet regmod
+summary(regmod)
+```
+
+Her sier regresjonsmodellen at det ikke er noen signifikant sammenheng mellom Squat 3RM og AVG CSA. Men det er en liten økning på 0,003 enheter i AVG CSA for hver enhet som økes i Squat 3RM.? Også korrelasjonen mellom de to variablene er ikke signifikant (p = `r round(pval2, 3)`), og korrelasjonen er på  `r round(cor2, 3)` som ikke er tilfredsstillende.
+
+Konklusjonen er da at det i denne studien ikke er noen sammenheng mellom muskelmasse målt i gjennomsnittlig muskeltverrsnitt og styrke målt ved 3RM squat. 
+
+```{r include=FALSE, warning=FALSE, message=FALSE}
+
+# litt usikker på dette, men det ser helt ok ut  
+plot(regmod)
+```
+
+## Referanseliste: 
+
+Haun, C. T., Vann, C. G., Mobley, C. B., Osburn, S. C., Mumford, P. W., Roberson, P. A., … Roberts, M. D. (2019). Pre-training Skeletal Muscle Fiber Size and Predominant Fiber Type Best Predict Hypertrophic Responses to 6 Weeks of Resistance Training in Previously Trained Young Men. *Frontiers in Physiology*, 10. doi:10.3389/fphys.2019.00297
+
+
+
+
+
+
+
+
